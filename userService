@@ -1,0 +1,99 @@
+package projectSpring.springAuth.Service;
+
+import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.*;
+
+@Service
+public class userService {
+
+
+    @Service
+    public class UserService {
+
+        private final UserRepository userRepository;
+        private final PasswordEncoder passwordEncoder;
+        private final JwtUtil jwtUtil;
+
+        public UserService(
+                UserRepository userRepository,
+                PasswordEncoder passwordEncoder,
+                JwtUtil jwtUtil) {
+
+            this.userRepository = userRepository;
+            this.passwordEncoder = passwordEncoder;
+            this.jwtUtil = jwtUtil;
+        }
+
+        // DTO → Entity
+        public UserEntity convertToEntity(UserDTO dto) {
+            UserEntity user = new UserEntity();
+            user.setName(dto.getName());
+            user.setEmail(dto.getEmail());
+            user.setPassword(
+                    passwordEncoder.encode(dto.getPassword())
+            );
+            user.setRole(dto.getRole());
+            return user;
+        }
+
+        // Entity → DTO
+        public UserDTO convertToDTO(UserEntity user) {
+            return new UserDTO(
+                    user.getId(),
+                    user.getName(),
+                    user.getEmail(),
+                    null,
+                    user.getRole()
+            );
+        }
+
+        public UserDTO register(UserDTO dto) {
+            UserEntity savedUser =
+                    userRepository.save(convertToEntity(dto));
+
+            return convertToDTO(savedUser);
+        }
+
+        public String login(String email, String password) {
+
+            UserEntity user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            if (!passwordEncoder.matches(password, user.getPassword())) {
+                throw new RuntimeException("Invalid Password");
+            }
+
+            return jwtUtil.generateToken(email);
+        }
+    }
+6. Auth Controller
+package WareHouse.InventoryManagementSystem.Controller;
+
+import WareHouse.InventoryManagementSystem.DTO.UserDTO;
+import WareHouse.InventoryManagementSystem.Service.UserService;
+import org.springframework.web.bind.annotation.*;
+
+    @RestController
+    @RequestMapping("/auth")
+    public class AuthController {
+
+        private final UserService userService;
+
+        public AuthController(UserService userService) {
+            this.userService = userService;
+        }
+
+        @PostMapping("/register")
+        public UserDTO register(@RequestBody UserDTO dto) {
+            return userService.register(dto);
+        }
+
+        @PostMapping("/login")
+        public String login(
+                @RequestParam String email,
+                @RequestParam String password) {
+
+            return userService.login(email, password);
+        }
+    }
+}
